@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DFX Salon</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        .page {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .active {
+            display: block;
+            opacity: 1;
+        }
+        .gradient-text {
+            background: linear-gradient(90deg, #6366F1, #9333EA);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: -1;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .nav-link {
+            position: relative;
+            padding-bottom: 5px;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: 0;
+            left: 0;
+            background-color: #6366F1;
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover::after {
+            width: 100%;
+        }
+        .service-card {
+            transition: all 0.3s ease;
+        }
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        #cursor-follower {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(99, 102, 241, 0.5);
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease, width 0.3s ease, height 0.3s ease;
+        }
+        .testimonial-card {
+            transition: transform 0.3s ease;
+        }
+        .testimonial-card:hover {
+            transform: scale(1.02);
+        }
+        .button-animation {
+            transition: all 0.3s ease;
+        }
+        .button-animation:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(99, 102, 241, 0.5);
+        }
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            width: 90%;
+            max-width: 500px;
+            background-color: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        #modal.show .modal-content {
+            transform: scale(1);
+        }
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-r from-indigo-50 to-purple-50 relative">
+    <div id="cursor-follower"></div>
+    <div id="canvas-container"></div>
+
+    <header class="relative z-10">
+        <div class="container mx-auto px-4 py-6 flex justify-between items-center">
+            <div class="flex items-center">
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl shadow-lg mr-3">DFX</div>
+                <h1 class="text-3xl font-bold gradient-text">DFX Salon</h1>
+            </div>
+            <div class="hidden md:flex items-center space-x-8">
+                <a href="#" onclick="showPage('about')" class="nav-link text-indigo-700 hover:text-indigo-900">අපි ගැන</a>
+                <a href="#" onclick="showPage('services')" class="nav-link text-indigo-700 hover:text-indigo-900">සේවා</a>
+                <a href="#" onclick="showPage('gallery')" class="nav-link text-indigo-700 hover:text-indigo-900">ගැලරිය</a>
+                <a href="#" onclick="showPage('testimonials')" class="nav-link text-indigo-700 hover:text-indigo-900">සාක්ෂි</a>
+                <a href="#" onclick="showPage('contact')" class="nav-link text-indigo-700 hover:text-indigo-900">සම්බන්ධ වන්න</a>
+                <button onclick="openBookingModal()" class="button-animation bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium py-2 px-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">
+                    වෙන් කරවා ගන්න
+                </button>
+            </div>
+            <button id="mobile-menu-button" class="md:hidden text-indigo-700 focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="mobile-menu" class="hidden md:hidden glass absolute top-20 right-4 z-50 p-4 rounded-lg shadow-xl w-64">
+            <a href="#" onclick="showPage('about'); closeMobileMenu();" class="block py-2 text-indigo-700 hover:bg-indigo-100 px-3 rounded">අපි ගැන</a>
+            <a href="#" onclick="showPage('services'); closeMobileMenu();" class="block py-2 text-indigo-700 hover:bg-indigo-100 px-3 rounded">සේවා</a>
+            <a href="#" onclick="showPage('gallery'); closeMobileMenu();" class="block py-2 text-indigo-700 hover:bg-indigo-100 px-3 rounded">ගැලරිය</a>
+            <a href="#" onclick="showPage('testimonials'); closeMobileMenu();" class="block py-2 text-indigo-700 hover:bg-indigo-100 px-3 rounded">සාක්ෂි</a>
+            <a href="#" onclick="showPage('contact'); closeMobileMenu();" class="block py-2 text-indigo-700 hover:bg-indigo-100 px-3 rounded">සම්බන්ධ වන්න</a>
+            <button onclick="openBookingModal(); closeMobileMenu();" class="mt-2 w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium py-2 px-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none">
+                වෙන් කරවා ගන්න
+            </button>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8 relative z-10 min-h-screen">
+        <section id="home" class="page active">
+            <div class="flex flex-col md:flex-row items-center justify-between pt-10 pb-20">
+                <div class="md:w-1/2 mb-10 md:mb-0">
+                    <h2 class="text-4xl md:text-5xl font-bold mb-6 leading-tight gradient-text animate__animated animate__fadeInUp">ඔබේ සුන්දරත්වය<br>අපි සමඟ විශ්වාස කරන්න</h2>
+                    <p class="text-gray-700 text-lg mb-8 animate__animated animate__fadeInUp animate__delay-1s">
+                        DFX Salon හි අපි ඔබගේ සුන්දරත්වය වැඩි දියුණු කිරීමට කැප වී සිටිමු. අපගේ පළපුරුදු කණ්ඩායම සමඟ, ඔබට සුවිශේෂී සහ නවීනතම රූපලාවන්‍ය අත්දැකීමක් ලබා ගත හැකිය.
+                    </p>
+                    <div class="flex flex-wrap gap-4 animate__animated animate__fadeInUp animate__delay-2s">
+                        <button onclick="showPage('services')" class="button-animation bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium py-3 px-6 rounded-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-all">
+                            අපගේ සේවා
+                        </button>
+                        <button onclick="openBookingModal()" class="button-animation bg-white text-indigo-700 border border-indigo-300 font-medium py-3 px-6 rounded-lg hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-all">
+                            වෙන් කරවා ගන්න
+                        </button>
+                    </div>
+                </div>
+                <div class="md:w-1/2 flex justify-center relative">
+                    <div id="hero-animation" class="w-64 h-64 md:w-80 md:h-80 bg-gradient-to-br from-indigo-300 to-purple-300 rounded-full shadow-xl floating"></div>
+                </div>
+            </div>
+
+            <div class="py-12">
+                <h3 class="text-2xl font-semibold mb-8 text-center gradient-text">විශේෂාංග</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="glass p-6 rounded-xl text-center">
+                        <div class="w-16 h-16 mx-auto mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-gem text-2xl text-indigo-600"></i>
+                        </div>
+                        <h4 class="text-xl font-semibold mb-2 text-indigo-700">ප්‍රමිතිගත සේවාව</h4>
+                        <p class="text-gray-600">අපි සෑම විටම ඉහළම තත්ත්වයේ ද්‍රව්‍ය සහ තාක්ෂණය භාවිතා කරමින් උසස් සේවාවක් සපයමු.</p>
+                    </div>
+                    <div class="glass p-6 rounded-xl text-center">
+                        <div class="w-16 h-16 mx-auto mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user-tie text-2xl text-indigo-600"></i>
+                        </div>
+                        <h4 class="text-xl font-semibold mb-2 text-indigo-700">පළපුරුදු කණ්ඩායම</h4>
+                        <p class="text-gray-600">අපගේ සියලුම කාර්ය මණ්ඩලය දක්ෂ, පළපුරුදු සහ වෘත්තීය සුදුසුකම් සහිත සාලන් විශේෂඥයින් වේ.</p>
+                    </div>
+                    <div class="glass p-6 rounded-xl text-center">
+                        <div class="w-16 h-16 mx-auto mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-calendar-check text-2xl text-indigo-600"></i>
+                        </div>
+                        <h4 class="text-xl font-semibold mb-2 text-indigo-700">පහසු වෙන්කිරීම්</h4>
+                        <p class="text-gray-600">ඔබට අපගේ වෙබ් අඩවිය හරහා හෝ දුරකථනයෙන් පහසුවෙන් වේලාවන් වෙන් කරගත හැකිය.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="about" class="page">
+            <div class="glass p-8 rounded-xl mb-8">
+                <div class="flex flex-col md:flex-row items-center">
+                    <div class="md:w-1/2 mb-6 md:mb-0 md:pr-8">
+                        <h2 class="text-3xl font-semibold mb-6 text-indigo-700">අපි ගැන</h2>
+                        <p class="text-gray-700 mb-4">
+                            DFX Salon යනු 2015 වසරේ සිට ක්‍රියාත්මක වන ප්‍රමුඛ රූපලාවන්‍යාගාරයකි. අපගේ අරමුණ වන්නේ සෑම පුද්ගලයෙකුගේම අභ්‍යන්තර සහ බාහිර සුන්දරත්වය ඉස්මතු කිරීමයි.
+                        </p>
+                        <p class="text-gray-700 mb-4">
+                            අපි ඉහළම තත්ත්වයේ නිෂ්පාදන පමණක් භාවිතා කරන අතර, අපගේ කාර්ය මණ්ඩලය නවීනතම ප්‍රවණතා සහ තාක්ෂණය පිළිබඳව නිරන්තරයෙන් පුහුණු කරනු ලැබේ.
+                        </p>
+                        <p class="text-gray-700">
+                            අපගේ රූපලාවන්‍යාගාරය මනාලියන් සැරසීම, විශේෂ අවස්ථා සඳහා මේකප් කිරීම, හිසකෙස් කැපීම සහ වර්ණ ගැන්වීම, සහ විවිධ රූපලාවන්‍ය ප්‍රතිකාර සඳහා ප්‍රසිද්ධය.
+                        </p>
+                    </div>
+                    <div class="md:w-1/2 flex justify-center">
+                        <div id="about-animation" class="w-64 h-64 md:w-80 md:h-80 rounded-full bg-gradient-to-br from-purple-300 to-indigo-300"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass p-8 rounded-xl">
+                <h3 class="text-2xl font-semibold mb-6 text-indigo-700">අපගේ වටිනාකම්</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="p-4 border-l-4 border-indigo-500 bg-white rounded shadow-sm">
+                        <h4 class="font-semibold text-lg text-indigo-700 mb-2">ගුණාත්මකභාවය</h4>
+                        <p class="text-gray-600">අපි සැම විටම අපගේ සේවාවන්හි ඉහළම ගුණාත්මකභාවය සහතික කරමු.</p>
+                    </div>
+                    <div class="p-4 border-l-4 border-indigo-500 bg-white rounded shadow-sm">
+                        <h4 class="font-semibold text-lg text-indigo-700 mb-2">නවීකරණය</h4>
+                        <p class="text-gray-600">අපි නවීනතම ප්‍රවණතා හා තාක්ෂණයන් අනුගමනය කරමින් නිරතුරුව වැඩිදියුණු වෙමු.</p>
+                    </div>
+                    <div class="p-4 border-l-4 border-indigo-500 bg-white rounded shadow-sm">
+                        <h4 class="font-semibold text-lg text-indigo-700 mb-2">සතුට</h4>
+                        <p class="text-gray-600">අපගේ අවසාන ඉලක්කය වන්නේ සෑම සේවාදායකයෙකුම සතුටින් පිටව යාමයි.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="services" class="page">
+            <h2 class="text-3xl font-semibold mb-8 text-center gradient-text">අපගේ සේවා</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="service-card glass p-6 rounded-xl">
+                    <div class="w-14 h-14 mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-cut text-xl text-indigo-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-indigo-700">හිසකෙස් කැපීම සහ සැකසීම</h3>
+                    <p class="text-gray-600 mb-4">
+                        ඔබගේ මුහුණේ හැඩය, කෙස් වර්ගය, සහ ජීවන රටාවට ගැලපෙන නවීනතම හිසකෙස් විලාසිතා.
+                    </p>
+                    <div class="border-t border-gray-200 pt-4 mt-2">
+                        <p class="text-indigo-600 font-semibold">මිල ආරම්භය: රු 1,000 සිට</p>
+                    </div>
+                </div>
+                
+                <div class="service-card glass p-6 rounded-xl">
+                    <div class="w-14 h-14 mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-palette text-xl text-indigo-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-indigo-700">හිසකෙස් වර්ණ ගැන්වීම</h3>
+                    <p class="text-gray-600 mb-4">
+                        ඩිජිටල් වර්ණ තාක්ෂණය සමඟ ඔබට ගැලපෙන හොඳම වර්ණය තෝරාගැනීමට සහාය වන අධුනික හිසකෙස් වර්ණ ගැන්වීම.
+                    </p>
+                    <div class="border-t border-gray-200 pt-4 mt-2">
+                        <p class="text-indigo-600 font-semibold">මිල ආරම්භය: රු 3,500 සිට</p>
+                    </div>
+                </div>
+                
+                <div class="service-card glass p-6 rounded-xl">
+                    <div class="w-14 h-14 mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-hands text-xl text-indigo-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-indigo-700">මැනිකියුර් සහ පෙඩිකියුර්</h3>
+                    <p class="text-gray-600 mb-4">
+                        සුපිරිසිදු, සෞඛ්‍යාරක්ෂිත සහ සුන්දර අත් සහ පාද සඳහා වෘත්තීය මැනිකියුර් සහ පෙඩිකියුර් සේවා.
+                    </p>
+                    <div class="border-t border-gray-200 pt-4 mt-2">
+                        <p class="text-indigo-600 font-semibold">මිල ආරම්භය: රු 1,500 සිට</p>
+                    </div>
+                </div>
+                
+                <div class="service-card glass p-6 rounded-xl">
+                    <div class="w-14 h-14 mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-spa text-xl text-indigo-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-indigo-700">මුහුණු ප්‍රතිකාර</h3>
+                    <p class="text-gray-600 mb-4">
+                        විවිධ සම වර්ග සඳහා විශේෂ මුහුණු ප්‍රතිකාර, සම පිරිසිදු කිරීම, සම තද කිරීම සහ වයස්ගත වීමේ ලකුණු අඩු කිරීම ඇතුළත්ය.
+                    </p>
+                    <div class="border-t border-gray-200 pt-4 mt-2">
+                        <p class="text-indigo-600 font-semibold">මිල ආරම්භය: රු 2,500 සිට</p>
+                    </div>
+                </div>
+                
+                <div class="service-card glass p-6 rounded-xl">
+                    <div class="w-14 h-14 mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-gem text-xl text-indigo-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-indigo-700">මනාලියන් සැරසීම</h3>
+                    <p class="text-gray-600 mb-4">
+                        ඔබේ විවාහ දිනය සඳහා සම්පූර්ණ සැරසිලි පැකේජය. හිසකෙස් සැකසීම, මේකප්, නියපොතු සහ ඇඳුම් උපදෙස් ඇතුළත් ය.
+                    </p>
+                    <div class="border-t border-gray-200 pt-4 mt-2">
+                        <p class="text-indigo-600 font-semibold">මිල ආරම්භය: රු 15,000 සිට</p>
+                    </div>
+                </div>
+                
+                <div class="service-card glass p-6 rounded-xl">
+                    <div class="w-14 h-14 mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-tint text-xl text-indigo-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-indigo-700">සම රැකවරණය</h3>
+                    <p class="text-gray-600 mb-4">
+                        ඔබගේ සමේ වර්ගය සඳහා විශේෂිත වූ රැකවරණ ප්‍රතිකාර. තෙත, වියළි, මිශ්‍ර හෝ සංවේදී සම සඳහා විශේෂිතයි.
+                    </p>
+                    <div class="border-t border-gray-200 pt-4 mt-2">
+                        <p class="text-indigo-600 font-semibold">මිල ආරම්භය: රු 2,000 සිට</p>
+                    </div>
+                </div>
+                
+                <div class="service-card glass p-6 rounded-xl">
+                    <div class="w-14 h-14 mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-magic text-xl text-indigo-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-indigo-700">මේකප් කිරීම</h3>
+                    <p class="text-gray-600 mb-4">
+                        එදිනෙදා, රාත්‍රී, පාර්ටි හෝ විශේෂ අවස්ථා සඳහා වෘත්තීය මේකප් සේවා.
+                    </p>
+                    <div class="border-t border-gray-200 pt-4 mt-2">
+                        <p class="text-indigo-600 font-semibold">මිල ආරම්භය: රු 2,500 සිට</p>
+                    </div>
+                </div>
+                
+                <div class="service-card glass p-6 rounded-xl">
+                    <div class="w-14 h-14 mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-leaf text-xl text-indigo-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-indigo-700">ආයුර්වේද ප්‍රතිකාර</h3>
+                    <p class="text-gray-600 mb-4">
+                        සම්ප්‍රදායික ආයුර්වේද තෙල් භාවිතයෙන් හිස මසාජ් කිරීම, මුහුණු මසාජ් කිරීම සහ ශරීර මසාජ් කිරීම.
+                    </p>
+                    <div class="border-t border-gray-200 pt-4 mt-2">
+                        <p class="text-indigo-600 font-semibold">මිල ආරම්භය: රු 3,000 සිට</p>
+                    </div>
+                </div>
+                
+                <div class="service-card glass p-6 rounded-xl">
+                    <div class="w-14 h-14 mb-4 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-spray-can text-xl text-indigo-600"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-2 text-indigo-700">කෙරටින් ප්‍රතිකාර</h3>
+                    <p class="text-gray-600 mb-4">
+                        නිරෝගී, පැහැපත් හා මෘදු කෙස් සඳහා උසස් තත්ත්වයේ කෙරටින් ප්‍රතිකාර. රළු හා හානි වූ කෙස් සඳහා විශේෂයි.
+                    </p>
+                    <div class="border-t border-gray-200 pt-4 mt-2">
+                        <p class="text-indigo-600 font-semibold">මිල ආරම්භය: රු 4,500 සිට</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-10 text-center">
+                <button onclick="openBookingModal()" class="button-animation bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium py-3 px-8 rounded-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition-all">
+                    අද වේලාවක් වෙන් කරවා ගන්න
+                </button>
+            </div>
+        </section>
+
+        <section id="gallery" class="page">
+            <h2 class="text-3xl font-semibold mb-8 text-center gradient-text">අපගේ ගැලරිය</h2>
+            
+            <div id="gallery-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- Gallery will be populated with p5.js -->
+            </div>
+        </section>
+
+        <section id="testimonials" class="page">
+            <h2 class="text-3xl font-semibold mb-8 text-center gradient-text">අපේ සේවාදායකයින් කියන්නේ කුමක්ද</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="testimonial-card glass p-6 rounded-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 flex items-center justify-center text-white font-bold">
+                            KP
+                        </div>
+                        <div class="ml-4">
+                            <h4 class="font-semibold text-indigo-700">කමලා පෙරේරා</h4>
+                            <div class="flex text-yellow-400">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 italic">
+                        "මම මගේ විවාහ දිනයට DFX Salon තෝරා ගත්තේ ඉතා සතුටින්. ඔවුන්ගේ කණ්ඩායම ඉතා වෘත්තීය මට්ටමින් කටයුතු කළා. මගේ හිසකෙස් සැකසීම සහ මේකප් ගැන මම ඉතා සතුටු වුණා!"
+                    </p>
+                </div>
+                
+                <div class="testimonial-card glass p-6 rounded-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 flex items-center justify-center text-white font-bold">
+                            SR
+                        </div>
+                        <div class="ml-4">
+                            <h4 class="font-semibold text-indigo-700">සමන්ත රාජපක්ෂ</h4>
+                            <div class="flex text-yellow-400">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star-half-alt"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 italic">
+                        "DFX Salon මගේ හිසකෙස් කපන්නේ එකම තැනයි. ඔවුන්ගේ කේෂ කලාකරුවන් ඉතා දක්ෂයි, සහ ඔවුන් නිතරම මා කැමති ආකාරයට මගේ හිසකෙස් සකසනවා."
+                    </p>
+                </div>
+                
+                <div class="testimonial-card glass p-6 rounded-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 flex items-center justify-center text-white font-bold">
+                            NF
+                        </div>
+                        <div class="ml-4">
+                            <h4 class="font-semibold text-indigo-700">නිලූකා ෆර්නැන්ඩෝ</h4>
+                            <div class="flex text-yellow-400">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 italic">
+                        "මම DFX Salon හි ආයුර්වේද මුහුණු ප්‍රතිකාරය ලබා ගත්තා, එය අද්භූතයි! මගේ සම දැන් වඩාත් පැහැපත් සහ ජීවමානයි. මම නැවතත් එය ලබා ගැනීමට සිතමින් සිටිනවා."
+                    </p>
+                </div>
+                
+                <div class="testimonial-card glass p-6 rounded-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 flex items-center justify-center text-white font-bold">
+                            DP
+                        </div>
+                        <div class="ml-4">
+                            <h4 class="font-semibold text-indigo-700">දිනේෂ් ප්‍රනාන්දු</h4>
+                            <div class="flex text-yellow-400">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="far fa-star"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 italic">
+                        "DFX Salon හි පිරිසිදු පරිසරය සහ මිත්‍රශීලී සේවාව ගැන මම ඇත්තටම කැමතියි. ඔවුන්ගේ කෙස් කැපීමේ තාක්ෂණය ඉතා නවීනයි."
+                    </p>
+                </div>
+                
+                <div class="testimonial-card glass p-6 rounded-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 flex items-center justify-center text-white font-bold">
+                            AG
+                        </div>
+                        <div class="ml-4">
+                            <h4 class="font-semibold text-indigo-700">අනුෂා ගුණතිලක</h4>
+                            <div class="flex text-yellow-400">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 italic">
+                        "මම මගේ වර්ණ ගැන්වීම සඳහා DFX Salon භාවිතා කරනවා. ඔවුන් මට නිතරම හොඳ උපදෙස් දෙනවා සහ මගේ හිසකෙස් සැමවිටම අලංකාරයි."
+                    </p>
+                </div>
+                
+                <div class="testimonial-card glass p-6 rounded-xl">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-400 to-purple-400 flex items-center justify-center text-white font-bold">
+                            RW
+                        </div>
+                        <div class="ml-4">
+                            <h4 class="font-semibold text-indigo-700">රෝහිත වික්‍රමසිංහ</h4>
+                            <div class="flex text-yellow-400">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star-half-alt"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 italic">
+                        "DFX Salon හි වේලාවන් සුදුසු පරිදි වෙන් කරගත හැකි වීම ගැන මම ඉතා කැමතියි. ඔවුන්ගේ සේවාව සහ මිල ගණන් සාධාරණයි."
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact" class="page">
+            <div class="flex flex-col lg:flex-row">
+                <div class="lg:w-1/2 lg:pr-8 mb-8 lg:mb-0">
+                    <div class="glass p-8 rounded-xl">
+                        <h2 class="text-3xl font-semibold mb-6 text-indigo-700">සම්බන්ධ වන්න</h2>
+                        <div class="space-y-6">
+                            <div class="flex items-start">
+                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center mr-4 mt-1">
+                                    <i class="fas fa-map-marker-alt text-indigo-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-lg font-semibold text-indigo-700 mb-1">ලිපිනය</h4>
+                                    <p class="text-gray-600">
+                                        123/A, මහවෙල පාර,<br>
+                                        කොළඹ 05,<br>
+                                        ශ්‍රී ලංකාව
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center mr-4 mt-1">
+                                    <i class="fas fa-phone-alt text-indigo-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-lg font-semibold text-indigo-700 mb-1">දුරකථන</h4>
+                                    <p class="text-gray-600">
+                                        +94 11 234 5678<br>
+                                        +94 77 123 4567
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center mr-4 mt-1">
+                                    <i class="fas fa-envelope text-indigo-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-lg font-semibold text-indigo-700 mb-1">විද්‍යුත් තැපෑල</h4>
+                                    <p class="text-gray-600">
+                                        info@dfxsalon.com<br>
+                                        reservations@dfxsalon.com
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center mr-4 mt-1">
+                                    <i class="fas fa-clock text-indigo-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-lg font-semibold text-indigo-700 mb-1">සේවා වේලාවන්</h4>
+                                    <p class="text-gray-600">
+                                        සඳුදා - සිකුරාදා: පෙ.ව 9:00 - ප.ව 8:00<br>
+                                        සෙනසුරාදා: පෙ.ව 9:00 - ප.ව 6:00<br>
+                                        ඉරිදා: පෙ.ව 10:00 - ප.ව 4:00
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center space-x-4 mt-6 pt-4 border-t border-gray-200">
+                                <a href="#" class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-colors">
+                                    <i class="fab fa-facebook-f"></i>
+                                </a>
+                                <a href="#" class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-colors">
+                                    <i class="fab fa-instagram"></i>
+                                </a>
+                                <a href="#" class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-colors">
+                                    <i class="fab fa-tiktok"></i>
+                                </a>
+                                <a href="#" class="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-colors">
+                                    <i class="fab fa-whatsapp"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="lg:w-1/2">
+                    <div class="glass p-8 rounded-xl">
+                        <h3 class="text-2xl font-semibold mb-6 text-indigo-700">අපට පණිවිඩයක් යවන්න</h3>
+                        <form id="contact-form" class="space-y-4">
+                            <div>
+                                <label for="name" class="block text-sm font-medium text-gray-700 mb-1">ඔබගේ නම</label>
+                                <input type="text" id="name" name="name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            
+                            <div>
+                                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">විද්‍යුත් තැපෑල</label>
+                                <input type="email" id="email" name="email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            
+                            <div>
+                                <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">දුරකථන අංකය</label>
+                                <input type="tel" id="phone" name="phone" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            
+                            <div>
+                                <label for="subject" class="block text-sm font-medium text-gray-700 mb-1">මාතෘකාව</label>
+                                <input type="text" id="subject" name="subject" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            
+                            <div>
+                                <label for="message" class="block text-sm font-medium text-gray-700 mb-1">පණිවිඩය</label>
+                                <textarea id="message" name="message" rows="4" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                            </div>
+                            
+                            <div>
+                                <button type="submit" class="button-animation w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium py-2 px-4 rounded-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">
+                                    යවන්න
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gradient-to-r from-indigo-800 to-purple-800 text-white py-10 mt-16">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between">
+                <div class="mb-8 md:mb-0 md:w-1/3">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-indigo-700 font-bold text-xl shadow-lg mr-3">DFX</div>
+                        <h3 class="text-xl font-bold">DFX Salon</h3>
+                    </div>
+                    <p class="text-indigo-200 max-w-xs">
+                        අපගේ විශේෂත්වය වන්නේ අපගේ සේවාදායකයින්ගේ සුන්දරත්වය සහ ආත්ම විශ්වාසය ඉහළ නැංවීමයි. අද ම අපගේ රූපලාවන්‍යාගාරයට පැමිණෙන්න.
+                    </p>
+                </div>
+                
+                <div class="mb-8 md:mb-0 md:w-1/4">
+                    <h4 class="text-lg font-semibold mb-4">යොමු</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" onclick="showPage('about')" class="text-indigo-200 hover:text-white transition-colors">අපි ගැන</a></li>
+                        <li><a href="#" onclick="showPage('services')" class="text-indigo-200 hover:text-white transition-colors">සේවා</a></li>
+                        <li><a href="#" onclick="showPage('gallery')" class="text-indigo-200 hover:text-white transition-colors">ගැලරිය</a></li>
+                        <li><a href="#" onclick="showPage('testimonials')" class="text-indigo-200 hover:text-white transition-colors">සාක්ෂි</a></li>
+                        <li><a href="#" onclick="showPage('contact')" class="text-indigo-200 hover:text-white transition-colors">සම්බන්ධ වන්න</a></li>
+                    </ul>
+                </div>
+                
+                <div class="mb-8 md:mb-0 md:w-1/4">
+                    <h4 class="text-lg font-semibold mb-4">සේවා</h4>
+                    <ul class="space-y-2">
+                        <li><a href="#" onclick="showPage('services')" class="text-indigo-200 hover:text-white transition-colors">හිසකෙස් සේවා</a></li>
+                        <li><a href="#" onclick="showPage('services')" class="text-indigo-200 hover:text-white transition-colors">නියපොතු සේවා</a></li>
+                        <li><a href="#" onclick="showPage('services')" class="text-indigo-200 hover:text-white transition-colors">සම රැකවරණය</a></li>
+                        <li><a href="#" onclick="showPage('services')" class="text-indigo-200 hover:text-white transition-colors">මේකප්</a></li>
+                        <li><a href="#" onclick="showPage('services')" class="text-indigo-200 hover:text-white transition-colors">මනාලියන් සැරසීම</a></li>
+                    </ul>
+                </div>
+                
+                <div class="md:w-1/4">
+                    <h4 class="text-lg font-semibold mb-4">පුවත් ලැයිස්තුව</h4>
+                    <p class="text-indigo-200 mb-4">අපගේ නවතම ප්‍රවර්ධන සහ විශේෂ වට්ටම් ගැන දැනගන්න.</p>
+                    <form class="flex">
+                        <input type="email" placeholder="ඔබගේ විද්‍යුත් තැපෑල" class="px-4 py-2 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 flex-1">
+                        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-r-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="border-t border-indigo-700 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
+                <p class="text-indigo-200 mb-4 md:mb-0">&copy; 2025 DFX Salon. සියලුම හිමිකම් ඇවිරිණි.</p>
+                <div class="flex space-x-4">
+                    <a href="#" class="text-indigo-200 hover:text-white transition-colors">රහස්‍යතා ප්‍රතිපත්තිය</a>
+                    <a href="#" class="text-indigo-200 hover:text-white transition-colors">සේවා කොන්දේසි</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Booking Modal -->
+    <div id="modal" class="modal">
+        <div class="modal-content p-0">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 py-4 px-6 flex justify-between items-center rounded-t-lg">
+                <h3 class="text-xl font-semibold text-white">වේලාවක් වෙන් කරවා ගන්න</h3>
+                <button onclick="closeModal()" class="text-white focus:outline-none">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="booking-form" class="space-y-4">
+                    <div>
+                        <label for="booking-name" class="block text-sm font-medium text-gray-700 mb-1">ඔබගේ නම</label>
+                        <input type="text" id="booking-name" name="booking-name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    
+                    <div>
+                        <label for="booking-email" class="block text-sm font-medium text-gray-700 mb-1">විද්‍යුත් තැපෑල</label>
+                        <input type="email" id="booking-email" name="booking-email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    
+                    <div>
+                        <label for="booking-phone" class="block text-sm font-medium text-gray-700 mb-1">දුරකථන අංකය</label>
+                        <input type="tel" id="booking-phone" name="booking-phone" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    
+                    <div>
+                        <label for="booking-service" class="block text-sm font-medium text-gray-700 mb-1">සේවාව</label>
+                        <select id="booking-service" name="booking-service" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="">සේවාවක් තෝරන්න</option>
+                            <option value="haircut">හිසකෙස් කැපීම සහ සැකසීම</option>
+                            <option value="coloring">හිසකෙස් වර්ණ ගැන්වීම</option>
+                            <option value="manicure">මැනිකියුර් සහ පෙඩිකියුර්</option>
+                            <option value="facial">මුහුණු ප්‍රතිකාර</option>
+                            <option value="bridal">මනාලියන් සැරසීම</option>
+                            <option value="skincare">සම රැකවරණය</option>
+                            <option value="makeup">මේකප් කිරීම</option>
+                            <option value="ayurveda">ආයුර්වේද ප්‍රතිකාර</option>
+                            <option value="keratin">කෙරටින් ප්‍රතිකාර</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="booking-date" class="block text-sm font-medium text-gray-700 mb-1">දිනය</label>
+                        <input type="date" id="booking-date" name="booking-date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    
+                    <div>
+                        <label for="booking-time" class="block text-sm font-medium text-gray-700 mb-1">වේලාව</label>
+                        <input type="time" id="booking-time" name="booking-time" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    
+                    <div>
+                        <label for="booking-notes" class="block text-sm font-medium text-gray-700 mb-1">අමතර සටහන්</label>
+                        <textarea id="booking-notes" name="booking-notes" rows="3" class="w-full px-4 py-2 border border-gray-
